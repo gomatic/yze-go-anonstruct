@@ -5,6 +5,15 @@ type Named struct {
 	a int
 }
 
+// AliasAnon aliases an anonymous struct with fields; the alias does not name a
+// new type, so the struct is still anonymous and is flagged.
+type AliasAnon = struct { // want `anonymous struct with fields; define a named type`
+	x int
+}
+
+// AliasEmpty aliases an empty anonymous struct (idiomatic); it is not flagged.
+type AliasEmpty = struct{}
+
 // Set uses an empty anonymous struct (idiomatic); it must not be flagged.
 type Set map[string]struct{}
 

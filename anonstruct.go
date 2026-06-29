@@ -5,6 +5,7 @@ package anonstruct
 
 import (
 	"go/ast"
+	"go/token"
 
 	goyze "github.com/gomatic/go-yze"
 	"golang.org/x/tools/go/analysis"
@@ -55,8 +56,10 @@ func isEmpty(st *ast.StructType) bool {
 }
 
 // namesAType reports whether the struct is the right-hand side of a type
-// declaration (its immediate parent in the traversal stack is a TypeSpec).
+// definition (its immediate parent in the traversal stack is a TypeSpec with no
+// Assign position). A type alias (`type A = struct{...}`) carries an Assign
+// position and does not name a new struct type, so it is not exempt.
 func namesAType(stack []ast.Node) bool {
-	_, ok := stack[len(stack)-2].(*ast.TypeSpec)
-	return ok
+	ts, ok := stack[len(stack)-2].(*ast.TypeSpec)
+	return ok && ts.Assign == token.NoPos
 }
