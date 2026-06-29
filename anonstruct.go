@@ -25,7 +25,6 @@ var Analyzer = &analysis.Analyzer{
 // Registration declares this analyzer to the yze framework.
 var Registration = goyze.Registration{
 	Name:       "anonstruct",
-	Group:      "go",
 	Categories: []goyze.Category{"types", "structure"},
 	URL:        "https://docs.gomatic.dev/yze/go/anonstruct",
 	Analyzer:   Analyzer,

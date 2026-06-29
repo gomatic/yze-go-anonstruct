@@ -3,8 +3,9 @@
 package main
 
 import (
-	anonstruct "github.com/gomatic/yze-go-anonstruct"
 	"golang.org/x/tools/go/analysis/singlechecker"
+
+	anonstruct "github.com/gomatic/yze-anonstruct"
 )
 
 // run is the analysis entry point, indirected so the binary's wiring is testable

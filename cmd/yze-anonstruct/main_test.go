@@ -3,10 +3,11 @@ package main
 import (
 	"testing"
 
-	anonstruct "github.com/gomatic/yze-go-anonstruct"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/tools/go/analysis"
+
+	anonstruct "github.com/gomatic/yze-anonstruct"
 )
 
 func TestMainRunsTheAnalyzer(t *testing.T) {

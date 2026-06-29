@@ -3,9 +3,10 @@ package anonstruct_test
 import (
 	"testing"
 
-	anonstruct "github.com/gomatic/yze-go-anonstruct"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/go/analysis/analysistest"
+
+	anonstruct "github.com/gomatic/yze-anonstruct"
 )
 
 func TestAnonymousStructsAreReported(t *testing.T) {
@@ -14,6 +15,6 @@ func TestAnonymousStructsAreReported(t *testing.T) {
 
 func TestRegistrationIsWellFormed(t *testing.T) {
 	assert.NoError(t, anonstruct.Registration.Validate())
-	assert.Equal(t, "yze/go/anonstruct", anonstruct.Registration.RuleID())
+	assert.Equal(t, "yze/anonstruct", anonstruct.Registration.RuleID())
 	assert.Same(t, anonstruct.Analyzer, anonstruct.Registration.Analyzer)
 }
