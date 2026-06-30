@@ -1,4 +1,4 @@
-module github.com/gomatic/yze-anonstruct
+module github.com/gomatic/yze-go-anonstruct
 
 go 1.26.4
 

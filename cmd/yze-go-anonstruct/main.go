@@ -1,11 +1,11 @@
-// Command yze-anonstruct runs the anonstruct analyzer as a standalone
+// Command yze-go-anonstruct runs the anonstruct analyzer as a standalone
 // go/analysis checker (text and -json output, and as a `go vet -vettool`).
 package main
 
 import (
 	"golang.org/x/tools/go/analysis/singlechecker"
 
-	anonstruct "github.com/gomatic/yze-anonstruct"
+	anonstruct "github.com/gomatic/yze-go-anonstruct"
 )
 
 // run is the analysis entry point, indirected so the binary's wiring is testable

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/go/analysis/analysistest"
 
-	anonstruct "github.com/gomatic/yze-anonstruct"
+	anonstruct "github.com/gomatic/yze-go-anonstruct"
 )
 
 func TestAnonymousStructsAreReported(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/tools/go/analysis"
 
-	anonstruct "github.com/gomatic/yze-anonstruct"
+	anonstruct "github.com/gomatic/yze-go-anonstruct"
 )
 
 func TestMainRunsTheAnalyzer(t *testing.T) {
