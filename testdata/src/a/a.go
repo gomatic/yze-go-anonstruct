@@ -68,3 +68,58 @@ type Outer struct {
 		z int
 	}
 }
+
+// TildeConstraint uses a struct as the operand of a ~ underlying-type term. Go
+// forbids a named (defined) type after ~, so no compliant rewrite exists and
+// the struct is not flagged.
+type TildeConstraint interface {
+	~struct{ x int }
+}
+
+// BareTermConstraint embeds a struct directly as an interface type-set term
+// (constraint position); it is not flagged.
+type BareTermConstraint interface {
+	struct{ b int }
+}
+
+// UnionConstraint unions struct terms in an interface type set (constraint
+// position); neither term is flagged.
+type UnionConstraint interface {
+	~struct{ u int } | struct{ w int }
+}
+
+// genericFunc constrains its type parameter directly with a struct type
+// (constraint position in the type-parameter list); it is not flagged.
+func genericFunc[P struct{ p int }]() {
+	var _ P
+}
+
+// genericFuncTilde constrains its type parameter with a ~ struct term directly
+// in the type-parameter list; it is not flagged.
+func genericFuncTilde[P ~struct{ q int }]() {
+	var _ P
+}
+
+// GenericType constrains its type parameter in a generic type declaration
+// (constraint position); the constraint struct is not flagged.
+type GenericType[P struct{ g int }] struct {
+	v P
+}
+
+// genericBody proves type parameters do not blanket-exempt a generic function:
+// an anonymous struct in the *body* is still flagged.
+func genericBody[P any]() {
+	var v struct { // want `anonymous struct with fields; define a named type`
+		x int
+	}
+	_ = v
+}
+
+// MethodParamInInterface proves interface bodies are not blanket-exempt: a
+// struct used as a method parameter inside an interface is an ordinary
+// anonymous struct, not a type-set term, and is flagged.
+type MethodParamInInterface interface {
+	M(struct { // want `anonymous struct with fields; define a named type`
+		m int
+	})
+}
