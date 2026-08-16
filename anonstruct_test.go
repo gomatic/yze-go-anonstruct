@@ -62,6 +62,8 @@ func TestRegistrationIsWellFormed(t *testing.T) {
 	assert.Equal(t, goyze.AnalyzerName("anonstruct"), anonstruct.Registration.Name)
 	assert.Equal(t, []goyze.Category{"types", "structure"}, anonstruct.Registration.Categories)
 	assert.Equal(t, goyze.HelpURL("https://docs.gomatic.dev/yze/anonstruct"), anonstruct.Registration.URL)
+	assert.Equal(t, goyze.TestScopeSourceOnly, anonstruct.Registration.TestScope,
+		"the zero value asserts reports-in-every-file, which this analyzer does not do")
 }
 
 // TestAnalyzerDocumentsEveryExemptionItApplies holds Analyzer.Doc to the rule

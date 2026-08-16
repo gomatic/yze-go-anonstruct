@@ -76,10 +76,13 @@ func findStructType(t *testing.T, file *ast.File) *ast.StructType {
 	return found
 }
 
-// TestCheckStaysSilentOnAPositionTheFileSetDoesNotKnow pins the fail-safe. An
-// unresolvable position has no name to judge, and the analyzer reports nothing
-// rather than dereferencing the nil the lookup returns or guessing at a name.
-func TestCheckStaysSilentOnAPositionTheFileSetDoesNotKnow(t *testing.T) {
+// TestAPositionTheFileSetDoesNotKnowIsNotAnArgumentForSilence pins the DIRECTION
+// of the fail-safe, which is the opposite of the obvious one. The only decision
+// taken from the file name is a suppression, so a position with no name must not
+// acquire it. go-yze answers the same question the same way for the framework's
+// own drops (compiled.go), and an analyzer failing silent where the framework
+// fails loud would be a second, quieter policy nobody declared.
+func TestAPositionTheFileSetDoesNotKnowIsNotAnArgumentForSilence(t *testing.T) {
 	reported := 0
 	pass := &analysis.Pass{
 		Fset:   token.NewFileSet(),
@@ -89,5 +92,34 @@ func TestCheckStaysSilentOnAPositionTheFileSetDoesNotKnow(t *testing.T) {
 	structType := &ast.StructType{Fields: &ast.FieldList{List: []*ast.Field{{}}}}
 	check(pass, structType, []ast.Node{&ast.File{}, structType})
 
-	assert.Equal(t, 0, reported, "a position the FileSet does not know is not judged")
+	assert.Equal(t, 1, reported, "an unresolvable position is not an argument for silence")
+}
+
+// TestNamesATypeStepsOverEveryParenthesis pins the walk where no fixture can.
+// gofmt collapses a nested pair to a single one, so `type T ((struct{...}))`
+// survives only until somebody formats the file — and the case that dies with it
+// is the one proving the walk is a loop rather than a single step. The stack is
+// built here instead, where no formatter reaches it.
+func TestNamesATypeStepsOverEveryParenthesis(t *testing.T) {
+	structType := &ast.StructType{Fields: &ast.FieldList{List: []*ast.Field{{}}}}
+	named := &ast.TypeSpec{Name: ast.NewIdent("Point")}
+	blankSpec := &ast.TypeSpec{Name: ast.NewIdent("_")}
+
+	assert.True(t, namesAType(stackUnder(named, structType, 0)), "no parentheses")
+	assert.True(t, namesAType(stackUnder(named, structType, 1)), "one pair")
+	assert.True(t, namesAType(stackUnder(named, structType, 2)), "two pairs")
+	assert.True(t, namesAType(stackUnder(named, structType, 5)), "five pairs")
+	assert.False(t, namesAType(stackUnder(blankSpec, structType, 2)), "a blank declaration names nothing")
+	assert.False(t, namesAType(stackUnder(&ast.ValueSpec{}, structType, 2)), "not a declaration at all")
+}
+
+// stackUnder builds an inspector-shaped stack: the file, the enclosing node,
+// depth parenthesis wrappers, then the struct.
+func stackUnder(enclosing ast.Node, structType *ast.StructType, depth int) []ast.Node {
+	stack := []ast.Node{&ast.File{}, enclosing}
+	for range depth {
+		stack = append(stack, &ast.ParenExpr{})
+	}
+
+	return append(stack, structType)
 }

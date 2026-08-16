@@ -14,9 +14,16 @@
 // A struct that a type declaration names is not reported, and BOTH spellings of
 // a declaration name it: `type Point struct{...}` defines a new type, and
 // `type Point = struct{...}` gives the same struct type a name without defining
-// one. Parentheses do not hide the declaration — `type Point (struct{...})` is
-// legal Go that the toolchain compiles as a definition, gofmt -s leaves alone
-// and gofumpt does not rewrite — so the declaration is looked for through them.
+// one. A declaration that names NOTHING is not a name and is reported —
+// `type _ = struct{...}` produces no identifier any use site could read, which
+// is the whole of what the exemption is for. Parentheses do not hide the
+// declaration — `type Point (struct{...})` is legal Go the toolchain compiles as
+// a definition, which gofmt leaves alone and gofumpt does not strip — so the
+// declaration is looked for through them. gofmt collapses a NESTED pair to a
+// single one, so a chain cannot survive in formatted source; the walk still
+// steps over the whole chain, because an analyzer judges source as it is written
+// rather than as it would be formatted, and an internal test pins that
+// independently of any fixture a format sweep could rewrite.
 //
 // The alias counts because the standard is about NAMES, and because a defined
 // type is not always available. Where an anonymous struct is fixed by a
@@ -62,6 +69,7 @@ package anonstruct
 
 import (
 	"go/ast"
+	"go/token"
 	"strings"
 
 	goyze "github.com/gomatic/go-yze"
@@ -76,8 +84,9 @@ const message = "anonymous struct with fields; define a named type"
 var Analyzer = &analysis.Analyzer{
 	Name: "anonstruct",
 	Doc: "reports anonymous struct types carrying fields, which the gomatic Go standard forbids in favor of named types. " +
-		"Not reported: a struct with no fields, which has nothing to name; a struct a type declaration names, whether it " +
-		"defines a type or aliases one, since either names it; and any struct in a _test.go file, where the table-driven " +
+		"Not reported: a struct with no fields, which has nothing to name; a struct a type declaration gives a name to, " +
+		"whether it defines a type or aliases one, since either names it, though never `type _`, which names nothing; " +
+		"and any struct in a _test.go file, where the table-driven " +
 		"literal is the idiom. There is no exemption for generic constraint position: an alias is accepted after ~, so the " +
 		"remedy exists there too",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
@@ -86,20 +95,30 @@ var Analyzer = &analysis.Analyzer{
 
 // Registration declares this analyzer to the yze framework.
 //
-// It declares no TestScope, and that is a decision rather than an omission.
-// check has already refused every test file by a matcher the judged file cannot
-// rewrite, so there is nothing left for the driver's scope filter to remove;
-// gomatic/yze's sourceOnly entry for this rule stays true of the analyzer and
-// is now a drop that never has anything to drop.
+// TestScope is DECLARED rather than left to the runner's table, because the zero
+// value is TestScopeAll and TestScopeAll asserts "reports findings in every
+// file" — which this analyzer does not. Leaving it unset would make the
+// registration state the opposite of the rule, true only for as long as
+// gomatic/yze's sourceOnly table keeps stamping the scope in from outside.
+//
+// Declaring it adds no second matcher an author could play off against the
+// first: check emits nothing for a test file, so the driver's drop has nothing
+// left to drop, and the driver decides from the compiled file name exactly as
+// check does, so the two cannot disagree even on a file carrying a line
+// directive.
 var Registration = goyze.Registration{
 	Name:       "anonstruct",
 	Categories: []goyze.Category{"types", "structure"},
 	URL:        "https://docs.gomatic.dev/yze/anonstruct",
+	TestScope:  goyze.TestScopeSourceOnly,
 	Analyzer:   Analyzer,
 }
 
 // testSuffix names the files the go tool compiles into the test binary alone.
 const testSuffix = "_test.go"
+
+// blank is the identifier that declares no name for anything to read.
+const blank = "_"
 
 // sourceName is a file's name as the FileSet knows it — the name the toolchain
 // parsed the file under, which no directive inside the file rewrites.
@@ -125,26 +144,33 @@ func run(pass *analysis.Pass) (any, error) {
 
 // check reports st unless it has no fields, a type declaration names it, or it
 // sits in a test file.
-//
-// The file is read from the FileSet by token.File.Name(), never from
-// fset.Position(...).Filename: the scope is a SUPPRESSION, and a //line
-// directive is a comment inside the judged file, so taking the decision from a
-// resolved position would let any source file claim the drop with one line
-// naming a _test.go it neither owns nor has to create. A file the FileSet does
-// not know has no name to judge, and the analyzer stays silent rather than
-// guessing at one or dereferencing the nil the lookup returns.
 func check(pass *analysis.Pass, st *ast.StructType, stack []ast.Node) {
 	if isEmpty(st) || namesAType(stack) {
 		return
 	}
-	found := pass.Fset.File(st.Pos())
-	if found == nil {
-		return
-	}
-	if sourceName(found.Name()).isTest() {
+	if compiledName(pass.Fset, st.Pos()).isTest() {
 		return
 	}
 	pass.Reportf(st.Pos(), message)
+}
+
+// compiledName returns the name the toolchain parsed pos's file under.
+//
+// It is token.File.Name() and never fset.Position(...).Filename, because the
+// only decision taken from it is a SUPPRESSION and a //line directive is a
+// comment inside the judged file: a resolved position would let any source file
+// claim the drop with one line naming a _test.go it neither owns nor creates.
+//
+// An invalid position belongs to no file and yields the empty name, which no
+// suppression matches — an unresolvable position is not an argument for silence,
+// so the finding stands. This is go-yze's rule for the same question, and the
+// two must not answer it differently.
+func compiledName(fset *token.FileSet, pos token.Pos) sourceName {
+	file := fset.File(pos)
+	if file == nil {
+		return ""
+	}
+	return sourceName(file.Name())
 }
 
 func isEmpty(st *ast.StructType) bool {
@@ -152,8 +178,10 @@ func isEmpty(st *ast.StructType) bool {
 }
 
 // namesAType reports whether a type declaration gives the struct a name: its
-// enclosing node in the traversal stack is a TypeSpec, which covers a definition
-// and an alias alike.
+// enclosing node in the traversal stack is a TypeSpec whose identifier is not
+// blank, which covers a definition and an alias alike. `type _ = struct{...}`
+// declares no identifier, so nothing can read the name and the exemption's whole
+// reason is absent.
 //
 // Parentheses are stepped over because a parenthesized type literal is still
 // the declared type, and each pair puts an ast.ParenExpr between the TypeSpec
@@ -164,8 +192,8 @@ func namesAType(stack []ast.Node) bool {
 	for isParenthesized(stack[i]) {
 		i--
 	}
-	_, ok := stack[i].(*ast.TypeSpec)
-	return ok
+	spec, ok := stack[i].(*ast.TypeSpec)
+	return ok && spec.Name.Name != blank
 }
 
 // isParenthesized reports whether n is a parenthesized expression, which wraps

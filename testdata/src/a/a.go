@@ -249,3 +249,17 @@ type PtrTo *struct { // want `anonymous struct with fields; define a named type`
 type Arr [3]struct { // want `anonymous struct with fields; define a named type`
 	s int
 }
+
+// A declaration that names nothing is not a name. Neither of these produces an
+// identifier any use site could read, so the exemption's whole reason is absent
+// and both are reported.
+
+// The blank alias declares no name for the struct.
+type _ = struct { // want `anonymous struct with fields; define a named type`
+	ba int
+}
+
+// The blank definition declares no name either.
+type _ struct { // want `anonymous struct with fields; define a named type`
+	bd int
+}
