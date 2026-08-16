@@ -123,3 +123,40 @@ type MethodParamInInterface interface {
 		m int
 	})
 }
+
+// twoFields carries more than one field, so a rule keyed on the number of
+// fields cannot pass by exempting everything above one.
+func twoFields() {
+	var v struct { // want `anonymous struct with fields; define a named type`
+		x int
+		y int
+	}
+	_ = v
+}
+
+// threeFields carries three, so the same widening cannot pass at two either.
+func threeFields() {
+	var v struct { // want `anonymous struct with fields; define a named type`
+		x int
+		y int
+		z int
+	}
+	_ = v
+}
+
+// embeddedOnly carries a single embedded field, which has no name of its own.
+// A field count is not what makes a struct anonymous, and neither is a name on
+// the field, so this is reported like any other.
+func embeddedOnly() {
+	var v struct { // want `anonymous struct with fields; define a named type`
+		Named
+	}
+	_ = v
+}
+
+// exportedFields carries exported fields only, proving the rule is not keyed on
+// the case of the field names.
+var exportedFields = struct { // want `anonymous struct with fields; define a named type`
+	X int
+	Y int
+}{}
