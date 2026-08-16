@@ -5,11 +5,29 @@ type Named struct {
 	a int
 }
 
-// AliasAnon aliases an anonymous struct with fields; the alias does not name a
-// new type, so the struct is still anonymous and is flagged.
-type AliasAnon = struct { // want `anonymous struct with fields; define a named type`
+// AliasAnon gives an anonymous struct a name without defining a new type. The
+// standard is about names, and the alias supplies one, so it is not flagged.
+type AliasAnon = struct {
 	x int
 }
+
+// ParenDefined parenthesizes the type literal of a definition. Parentheses are
+// legal here, gofmt -s leaves them alone, and the declaration still names the
+// struct, so it is not flagged.
+type ParenDefined (struct {
+	p int
+})
+
+// ParenParenDefined nests the parentheses, proving the declaration is looked
+// for through however many of them there are.
+type ParenParenDefined ((struct {
+	pp int
+}))
+
+// ParenAlias parenthesizes an alias's type literal; it names the struct too.
+type ParenAlias = (struct {
+	pa int
+})
 
 // AliasEmpty aliases an empty anonymous struct (idiomatic); it is not flagged.
 type AliasEmpty = struct{}
@@ -70,41 +88,74 @@ type Outer struct {
 }
 
 // TildeConstraint uses a struct as the operand of a ~ underlying-type term. Go
-// forbids a named (defined) type after ~, so no compliant rewrite exists and
-// the struct is not flagged.
+// forbids a DEFINED type there, but an alias is accepted — `type S = struct{ x
+// int }` makes `~S` legal — so a compliant rewrite exists and the term is
+// flagged like any other anonymous struct.
 type TildeConstraint interface {
-	~struct{ x int }
+	~struct{ x int } // want `anonymous struct with fields; define a named type`
 }
 
-// BareTermConstraint embeds a struct directly as an interface type-set term
-// (constraint position); it is not flagged.
+// BareTermConstraint embeds a struct directly as an interface type-set term. A
+// defined type is legal in that position, so the rewrite exists and the term is
+// flagged.
 type BareTermConstraint interface {
-	struct{ b int }
+	struct{ b int } // want `anonymous struct with fields; define a named type`
 }
 
-// UnionConstraint unions struct terms in an interface type set (constraint
-// position); neither term is flagged.
+// UnionConstraint unions struct terms in an interface type set. Both arms have
+// a compliant rewrite and both are flagged.
 type UnionConstraint interface {
-	~struct{ u int } | struct{ w int }
+	~struct{ u int } | struct{ w int } // want `anonymous struct with fields; define a named type` `anonymous struct with fields; define a named type`
 }
 
-// genericFunc constrains its type parameter directly with a struct type
-// (constraint position in the type-parameter list); it is not flagged.
-func genericFunc[P struct{ p int }]() {
+// genericFunc constrains its type parameter directly with a struct type. A
+// defined type is legal there, so it is flagged.
+func genericFunc[P struct{ p int }]() { // want `anonymous struct with fields; define a named type`
 	var _ P
 }
 
-// genericFuncTilde constrains its type parameter with a ~ struct term directly
-// in the type-parameter list; it is not flagged.
-func genericFuncTilde[P ~struct{ q int }]() {
+// genericFuncTilde constrains its type parameter with a ~ struct term; an alias
+// is legal after ~, so it is flagged.
+func genericFuncTilde[P ~struct{ q int }]() { // want `anonymous struct with fields; define a named type`
 	var _ P
 }
 
-// GenericType constrains its type parameter in a generic type declaration
-// (constraint position); the constraint struct is not flagged.
-type GenericType[P struct{ g int }] struct {
+// GenericType constrains its type parameter in a generic type declaration. The
+// constraint accepts a defined type, so the struct is flagged.
+type GenericType[P struct{ g int }] struct { // want `anonymous struct with fields; define a named type`
 	v P
 }
+
+// NamedConstraint proves the prescribed rewrite is accepted where the analyzer
+// prescribes it: a defined type as a bare type-set term. Nothing from here to
+// remediedType is flagged, and the package compiles, which is what makes the
+// remedy actionable rather than advice.
+type NamedConstraint interface {
+	Named
+}
+
+// AliasedForTilde is the alias spelling ~ accepts.
+type AliasedForTilde = struct {
+	t int
+}
+
+// TildeNamed applies ~ to the alias, which is the rewrite TildeConstraint's
+// diagnostic prescribes.
+type TildeNamed interface {
+	~AliasedForTilde
+}
+
+// remediedFunc takes the defined type as a direct type-parameter constraint.
+func remediedFunc[P Named]() { var _ P }
+
+// RemediedType takes the defined type as a generic type's constraint.
+type RemediedType[P Named] struct {
+	v P
+}
+
+var _ = remediedFunc[Named]
+
+var _ RemediedType[Named]
 
 // genericBody proves type parameters do not blanket-exempt a generic function:
 // an anonymous struct in the *body* is still flagged.

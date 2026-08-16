@@ -64,6 +64,26 @@ func TestRegistrationIsWellFormed(t *testing.T) {
 	assert.Equal(t, goyze.HelpURL("https://docs.gomatic.dev/yze/anonstruct"), anonstruct.Registration.URL)
 }
 
+// TestAnalyzerDocumentsEveryExemptionItApplies holds Analyzer.Doc to the rule
+// the code implements. Doc is what `go vet -vettool` prints and what the shipped
+// cmd/ binary documents itself by, and an exemption absent from the documentation
+// gets no corpus case, no forgery probe and no reviewer, because every
+// enumerator is told to start from the documentation.
+func TestAnalyzerDocumentsEveryExemptionItApplies(t *testing.T) {
+	assert.Equal(t, "anonstruct", anonstruct.Analyzer.Name)
+	for _, exemption := range []sourceToken{
+		"reports anonymous struct types carrying fields",
+		"no fields",
+		"names it",
+		"alias",
+		"~",
+		"_test.go",
+	} {
+		assert.Contains(t, anonstruct.Analyzer.Doc, string(exemption),
+			"Analyzer.Doc must state what is reported and name every exemption the code applies")
+	}
+}
+
 // positionOf resolves a 1-based line and column for the first occurrence of
 // token in a fixture, so a position assertion states which token it requires
 // instead of repeating a number some earlier run produced.
