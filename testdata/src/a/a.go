@@ -211,3 +211,41 @@ var exportedFields = struct { // want `anonymous struct with fields; define a na
 	X int
 	Y int
 }{}
+
+// A declaration names the struct only when the struct IS the declared type. The
+// six below each name something ELSE that merely contains an anonymous struct —
+// a slice, a map, a func, a channel, a pointer, an array — and every one is
+// still reported. They vary the kind of node sitting between the TypeSpec and
+// the struct, which is the dimension the rest of this file holds constant: any
+// widening of the walk that looks past that node for a TypeSpec silences all of
+// them at once, and nothing else here would notice.
+
+// Rows names a slice, not the element struct.
+type Rows []struct { // want `anonymous struct with fields; define a named type`
+	r int
+}
+
+// Index names a map, not the value struct.
+type Index map[string]struct { // want `anonymous struct with fields; define a named type`
+	i int
+}
+
+// Callback names a func type, not its parameter struct.
+type Callback func(struct { // want `anonymous struct with fields; define a named type`
+	c int
+})
+
+// Pipe names a channel, not its element struct.
+type Pipe chan struct { // want `anonymous struct with fields; define a named type`
+	p int
+}
+
+// PtrTo names a pointer, not its pointee struct.
+type PtrTo *struct { // want `anonymous struct with fields; define a named type`
+	q int
+}
+
+// Arr names an array, not its element struct.
+type Arr [3]struct { // want `anonymous struct with fields; define a named type`
+	s int
+}
